@@ -12,4 +12,6 @@ public interface UserService {
     ResponseEntity<String> login(Map<String, String> requestMap);
 
     ResponseEntity<List<UserWrapper>> getALlUser();
+
+    ResponseEntity<String> updateUser(Map<String, String> requestMap);
 }

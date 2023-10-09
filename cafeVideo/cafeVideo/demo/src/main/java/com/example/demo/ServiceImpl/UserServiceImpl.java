@@ -3,6 +3,7 @@ package com.example.demo.ServiceImpl;
 import com.example.demo.Constants.CafeConstants;
 import com.example.demo.Dao.UserDao;
 import com.example.demo.JWT.CustomerUserDetailsService;
+import com.example.demo.JWT.JwtFilter;
 import com.example.demo.JWT.JwtUtil;
 import com.example.demo.POJO.User;
 import com.example.demo.Service.UserService;
@@ -17,10 +18,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -38,6 +36,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     CustomerUserDetailsService customerUserDetailsService;
+
+    @Autowired
+    JwtFilter jwtFilter;
 
     @Override
     public ResponseEntity<String> signUp(Map<String, String> requestMap) {
@@ -82,18 +83,35 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<List<UserWrapper>> getALlUser() {
-        List<User> userList = userDao.findAll();
-        List<UserWrapper> userWrapperList = new ArrayList<>();
-        for (User u: userList) {
-            UserWrapper user = new UserWrapper();
-            user.setName(u.getName());
-            user.setContactNumber(u.getContactNumber());
-            user.setEmail(u.getEmail());
-            user.setStatus(u.getStatus());
-            user.setId(u.getId());
-            userWrapperList.add(user);
+        try {
+            if (jwtFilter.isAdmin()) {
+                return new ResponseEntity<>(userDao.getAllUser(),HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(new ArrayList<>(), HttpStatus.UNAUTHORIZED);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
-        return ResponseEntity<List<UserWrapper>(userWrapperList,HttpStatus.OK);
+        return new ResponseEntity<List<UserWrapper>>(new ArrayList<>(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Override
+    public ResponseEntity<String> updateUser(Map<String, String> requestMap) {
+        try {
+            if(jwtFilter.isUser()){
+                Optional<User> optionalUser = userDao.findById(Integer.valueOf(requestMap.get("id")));
+                if(!optionalUser.isEmpty()){
+                    userDao.updateStatus(requestMap.get("status"),
+                            Integer.valueOf(requestMap.get("id")));
+                    return CafeUtils.getResponseEntity("Update status success",HttpStatus.OK);
+                }else {
+                    return new ResponseEntity<>("User does not existed", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return new ResponseEntity<>("User does not existed", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     private boolean validateSignUpMap(Map<String, String> requestMap) {
